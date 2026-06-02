@@ -1,0 +1,91 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: savestate_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: retro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-retro_dev}
+      POSTGRES_DB: retro_backlog
+      # Optional: auto-create an admin user on first DB init
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Admin}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retro -d retro_backlog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: savestate_api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://retro:${POSTGRES_PASSWORD:-retro_dev}@db:5432/retro_backlog
+      # Optional: auto-create an admin user if it doesn't exist
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ADMIN_DISPLAY_NAME=${ADMIN_DISPLAY_NAME:-Admin}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://example.com/api}
+        VITE_FILES_URL: ${VITE_FILES_URL:-https://example.com/uploads}
+    container_name: savestate_web
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  openapi:
+    image: swaggerapi/swagger-ui:latest
+    container_name: savestate_openapi
+    restart: unless-stopped
+    environment:
+      SWAGGER_JSON: /openapi.yaml
+    volumes:
+      - ./openapi.yaml:/openapi.yaml:ro
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: savestate_caddy
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-dev@localhost}
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+      - openapi
+
+volumes:
+  postgres_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:
+

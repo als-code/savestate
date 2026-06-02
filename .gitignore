@@ -1,0 +1,16 @@
+node_modules
+.env
+.env.local
+.env.*.local
+dist
+*.log
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local data)
+postgres_data
+pgadmin_data
+
+# Uploaded game covers (keep directory via .gitkeep)
+backend/uploads/*
+!backend/uploads/.gitkeep

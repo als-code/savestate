@@ -1,0 +1,768 @@
+openapi: 3.0.3
+info:
+  title: SaveState Retro Backlog API
+  version: 1.0.0
+  description: API for a retro game catalog, personal backlog, and reviews.
+servers:
+  - url: /api
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Catalog
+  - name: Backlog
+  - name: Reviews
+  - name: Admin
+  - name: Dev
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string, nullable: true }
+              message: { type: string }
+      required: [success, message]
+    SuccessEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: {}
+      required: [success, data]
+    Health:
+      type: object
+      properties:
+        ok: { type: boolean, example: true }
+        service: { type: string, example: savestate-retro-backlog }
+        db: { type: boolean, example: true }
+      required: [ok, service, db]
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email, example: admin@savestate.dev }
+        password: { type: string, example: admin123 }
+      required: [email, password]
+    LoginResponseData:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: integer, example: 1 }
+            email: { type: string, format: email }
+            display_name: { type: string, example: Admin }
+            role: { type: string, example: admin }
+          required: [id, email, display_name, role]
+      required: [token, user]
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        email: { type: string, format: email }
+        display_name: { type: string, example: Admin }
+        role: { type: string, example: admin }
+        is_active: { type: boolean, example: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+      required: [id, email, display_name, role, is_active, created_at]
+    Game:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        title: { type: string, example: Super Mario Bros. 3 }
+        description: { type: string, nullable: true }
+        platform_id: { type: integer, example: 4 }
+        platform_slug: { type: string, example: nes }
+        platform_name: { type: string, example: NES }
+        genre_id: { type: integer, nullable: true, example: 4 }
+        genre_name: { type: string, nullable: true, example: Plataformas }
+        release_year: { type: integer, nullable: true, example: 1988 }
+        cover: { type: string, nullable: true, example: cover-123.webp }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+      required: [id, title, platform_id, created_at]
+    GameCreateUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 150 }
+        platform_id: { type: integer, minimum: 1 }
+        genre_id: { type: integer, minimum: 1, nullable: true }
+        release_year: { type: integer, minimum: 1970, maximum: 2100, nullable: true }
+        description: { type: string, nullable: true }
+        cover: { type: string, nullable: true }
+      required: [title, platform_id]
+    Genre:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: Acción }
+      required: [id, name]
+    Platform:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        slug: { type: string, example: nes }
+        name: { type: string, example: NES }
+        sort_order: { type: integer, example: 40 }
+      required: [id, slug, name]
+    MyGame:
+      type: object
+      properties:
+        user_game_id: { type: integer, example: 10 }
+        user_id: { type: integer, example: 1 }
+        game_id: { type: integer, example: 1 }
+        owned: { type: boolean, example: false }
+        status:
+          type: string
+          enum: [pending, playing, tested, completed, abandoned]
+          example: pending
+        hours_played: { type: integer, example: 0 }
+        notes: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+        title: { type: string }
+        cover: { type: string, nullable: true }
+        release_year: { type: integer, nullable: true }
+        platform_id: { type: integer }
+        genre_id: { type: integer, nullable: true }
+        platform_slug: { type: string }
+        platform_name: { type: string }
+        genre_name: { type: string, nullable: true }
+      required: [user_game_id, user_id, game_id, owned, status, hours_played, created_at, title, platform_id, platform_slug, platform_name]
+    MyGamePatch:
+      type: object
+      properties:
+        owned: { type: boolean }
+        status:
+          type: string
+          enum: [pending, playing, tested, completed, abandoned]
+        hours_played: { type: integer, minimum: 0, nullable: true }
+        notes: { type: string, maxLength: 5000, nullable: true }
+      required: [status]
+    Review:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        user_id: { type: integer, example: 1 }
+        game_id: { type: integer, example: 1 }
+        rating: { type: integer, minimum: 1, maximum: 10, example: 9 }
+        comment: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+        author_email: { type: string, format: email, nullable: true }
+        author_name: { type: string, nullable: true }
+      required: [id, user_id, game_id, rating, created_at]
+    ReviewUpsert:
+      type: object
+      properties:
+        game_id: { type: integer, minimum: 1 }
+        rating: { type: integer, minimum: 1, maximum: 10 }
+        comment: { type: string, maxLength: 5000, nullable: true }
+      required: [game_id, rating]
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Healthcheck API + DB
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login (devuelve JWT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/LoginResponseData"
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Usuario actual
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user: { $ref: "#/components/schemas/User" }
+                        required: [user]
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /games:
+    get:
+      tags: [Catalog]
+      summary: Listar juegos (público)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: q
+          description: Búsqueda por título (ILIKE)
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Game" }
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [Admin]
+      summary: Crear juego (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GameCreateUpdate" }
+      responses:
+        "201":
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Game" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: No autorizado (no admin)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /games/{id}:
+    get:
+      tags: [Catalog]
+      summary: Detalle de juego (público)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Game" }
+        "404":
+          description: No encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [Admin]
+      summary: Actualizar juego (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GameCreateUpdate" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Game" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: No autorizado (no admin)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Admin]
+      summary: Borrar juego (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deleted: { type: boolean, example: true }
+                          id: { type: integer, example: 1 }
+                        required: [deleted, id]
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: No autorizado (no admin)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /games/{id}/cover:
+    patch:
+      tags: [Admin]
+      summary: Subir carátula (admin)
+      description: Subida multipart/form-data con campo `cover`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                cover:
+                  type: string
+                  format: binary
+              required: [cover]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Game" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: No autorizado (no admin)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /genres:
+    get:
+      tags: [Catalog]
+      summary: Listar géneros (público)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Genre" }
+
+  /platforms:
+    get:
+      tags: [Catalog]
+      summary: Listar plataformas (público)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Platform" }
+
+  /my-games:
+    get:
+      tags: [Backlog]
+      summary: Listar backlog del usuario
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/MyGame" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /my-games/{gameId}:
+    get:
+      tags: [Backlog]
+      summary: Ver un juego de tu backlog por gameId
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/MyGame" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No está en tu backlog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [Backlog]
+      summary: Añadir juego a tu backlog
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/MyGame" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Backlog]
+      summary: Quitar juego de tu backlog
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deleted: { type: boolean, example: true }
+                          game_id: { type: integer, example: 1 }
+                        required: [deleted, game_id]
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No está en tu backlog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /my-games/{gameId}/status:
+    patch:
+      tags: [Backlog]
+      summary: Actualizar estado/hours/owned/notes de un juego del backlog
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: gameId
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MyGamePatch" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/MyGame" }
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No está en tu backlog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /games/{id}/reviews:
+    get:
+      tags: [Reviews]
+      summary: Listar reseñas por juego (público)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Review" }
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /game-reviews:
+    post:
+      tags: [Reviews]
+      summary: Crear reseña (autenticado)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewUpsert" }
+      responses:
+        "201":
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Review" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [Reviews]
+      summary: Actualizar reseña propia (autenticado)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewUpsert" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Review" }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Reseña no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /dev/users:
+    post:
+      tags: [Dev]
+      summary: Ruta de desarrollo (solo en no-production)
+      description: Inserta un usuario dev para probar validaciones/errores.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                display_name: { type: string, minLength: 2, maxLength: 40 }
+              required: [email, display_name]
+      responses:
+        "201":
+          description: Creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessEnvelope" }
+        "400":
+          description: Validación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }

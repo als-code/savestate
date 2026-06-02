@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: savestate_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: retro
+      POSTGRES_PASSWORD: retro_dev
+      POSTGRES_DB: retro_backlog
+      # Optional: auto-create an admin user on first DB init
+      # ADMIN_EMAIL: admin@example.com
+      # ADMIN_PASSWORD: change-me
+      # ADMIN_DISPLAY_NAME: Admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retro -d retro_backlog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: savestate_pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@savestate.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    container_name: savestate_api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://retro:retro_dev@db:5432/retro_backlog
+      # Optional: auto-create an admin user if it doesn't exist
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ADMIN_DISPLAY_NAME=${ADMIN_DISPLAY_NAME:-Admin}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: savestate_web
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+      - VITE_FILES_URL=http://localhost:3000/uploads
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+
+  openapi:
+    image: swaggerapi/swagger-ui:latest
+    container_name: savestate_openapi
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      SWAGGER_JSON: /openapi.yaml
+    volumes:
+      - ./openapi.yaml:/openapi.yaml:ro
+
+volumes:
+  postgres_data:
+  pgadmin_data:

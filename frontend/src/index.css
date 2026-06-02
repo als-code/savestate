@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  /* Dark, cinematic base (inspired by Backloggd-like UI) */
+  --color-retro-bg: #0b0f14;
+  --color-retro-surface: #0f1621;
+  --color-retro-border: #223041;
+  --color-retro-border-soft: #1a2533;
+
+  /* Accent */
+  --color-retro-accent: #3b82f6;
+  --color-retro-accent-muted: #2563eb;
+
+  /* Status */
+  --color-retro-warning: #fbbf24;
+  --color-retro-danger: #fb7185;
+
+  /* Typography */
+  --font-retro-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans",
+    "Apple Color Emoji", "Segoe UI Emoji";
+
+  /* Shape & elevation */
+  --radius-card: 0.75rem;
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-retro-sans);
+  background:
+    url("/bg.webp") center / cover no-repeat fixed,
+    radial-gradient(1200px 600px at 10% -10%, rgba(59, 130, 246, 0.22), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(59, 130, 246, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 280px),
+    var(--color-retro-bg);
+  @apply text-gray-100;
+}
