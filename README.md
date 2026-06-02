@@ -2,6 +2,18 @@
 
 A small full-stack app to track retro games: **pending**, **playing**, **completed**, and **abandoned**.
 
+## Screenshots
+
+![Home](docs/screenshots/home.webp)
+
+| Login | My backlog |
+|:---:|:---:|
+| ![Login](docs/screenshots/login.webp) | ![My backlog](docs/screenshots/game_backlog.webp) |
+
+| Admin (create game) | Admin (edit game) |
+|:---:|:---:|
+| ![Admin create game](docs/screenshots/edit1.webp) | ![Admin edit game](docs/screenshots/edit2.webp) |
+
 ## Stack
 
 - **Frontend**: React (Vite) + Tailwind CSS
