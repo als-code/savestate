@@ -1,12 +1,12 @@
-# Deploy on Ubuntu Server (Docker Compose)
+# Run on a private Ubuntu server (Docker Compose)
 
-Production-oriented checklist to run the stack on an Ubuntu Server host.
+Checklist for **your own** Ubuntu machine on the home LAN. Not for public hosting.
+
+Uses `docker-compose.prod.yml`. **Same host ports as development** (see README).
 
 ## Install Docker
 
-Follow the official guide: https://docs.docker.com/engine/install/ubuntu/
-
-After installation:
+https://docs.docker.com/engine/install/ubuntu/
 
 ```bash
 sudo usermod -aG docker $USER
@@ -22,14 +22,15 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` and set a strong `JWT_SECRET`.
+- `backend/.env`: strong `JWT_SECRET`
+- `.env`: `ADMIN_*`, and `VITE_API_URL` / `VITE_FILES_URL` with your server **LAN IP**
 
-Edit `.env` and set:
+Example (`192.168.1.50`):
 
-- `POSTGRES_PASSWORD` (optional)
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD` (admin account)
-- `DOMAIN`, `ACME_EMAIL` (Caddy / TLS)
-- `VITE_API_URL`, `VITE_FILES_URL` (optional; used at frontend build time)
+```env
+VITE_API_URL=http://192.168.1.50:3030/api
+VITE_FILES_URL=http://192.168.1.50:3030/uploads
+```
 
 ## Start
 
@@ -37,16 +38,23 @@ Edit `.env` and set:
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-The production stack uses [Caddy](../Caddyfile) as a reverse proxy when defined in `docker-compose.prod.yml`.
+| Service    | Port |
+|------------|------|
+| Frontend   | 5175 |
+| API        | 3030 |
+| Swagger UI | 3035 |
+
+From another device: `http://192.168.1.50:5175/` (replace with your IP).
 
 ## Verify
 
 ```bash
 docker ps
-curl -sS http://localhost:8080/api/health
+curl -sS http://localhost:3030/api/health
 ```
 
-Notes:
+## Notes
 
-- The admin user is created by the API on startup if `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set and the user doesn't exist yet.
-- `pgAdmin` is only included in the development compose (`docker-compose.yml`), not in production.
+- Admin user is created on first start if `ADMIN_EMAIL` / `ADMIN_PASSWORD` are set.
+- **Firewall**: allow **5175**, **3030**, **3035** on the LAN if needed.
+- `pgAdmin` is only in the development compose (`docker-compose.yml`).

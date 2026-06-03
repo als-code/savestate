@@ -2,12 +2,22 @@
 
 The API specification lives in [`openapi.yaml`](../openapi.yaml) at the repository root.
 
+<details>
+<summary>OpenAPI (Swagger UI)</summary>
+
+| API overview | Schemas |
+|:---:|:---:|
+| ![OpenAPI overview](screenshots/openapi1.webp) | ![OpenAPI schemas list](screenshots/openapi2.webp) |
+
+| Endpoint detail | Schema models |
+|:---:|:---:|
+| ![OpenAPI GET /games/{id}](screenshots/openapi3.webp) | ![OpenAPI schema detail](screenshots/openapi4.webp) |
+
+</details>
+
 ## Swagger UI (included in Docker)
 
-Swagger UI is included in the Docker stack (no upload needed):
-
-- Development (direct port): `http://localhost:8081/`
-- Production (behind Caddy): `http(s)://<your-domain>/docs`
+- `http://localhost:3035/` (dev and Ubuntu server use the same port)
 
 ## Swagger Editor (browser)
 
@@ -22,7 +32,4 @@ npx --yes redoc-cli serve openapi.yaml
 
 ## Base URL
 
-With the default Docker Compose setup:
-
-- Development: `http://localhost:3000/api`
-- Production: depends on your domain and `docker-compose.prod.yml` / Caddy configuration
+- API: `http://localhost:3030/api` (or `http://<server-lan-ip>:3030/api` on the network)
